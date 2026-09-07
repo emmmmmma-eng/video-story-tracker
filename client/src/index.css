@@ -96,6 +96,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .text-button { padding: 4px 0; color: var(--orange-dark); background: transparent; font-size: 11px; font-weight: 750; }
 .text-button:hover { color: var(--orange); }
 .heading-actions, .library-tools { display: flex; align-items: center; gap: 9px; }
+.mobile-tabs { display: none; }
 .heading-filter { display: flex; align-items: center; gap: 7px; padding: 5px 8px 5px 11px; color: #aaa79f; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
 .heading-filter select { min-width: 90px; padding: 3px 18px 3px 0; border: 0; outline: 0; color: #686760; background: transparent; font-size: 11px; }
 
@@ -173,6 +174,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .record-form-card.is-editing { border-color: #f2c9ba; box-shadow: 0 16px 45px rgba(238,114,78,.1); }
 .form-card-heading { align-items: center; padding-bottom: 21px; border-bottom: 1px solid #f0f0ec; }
 .form-card-heading h2 { margin-top: 8px; font-size: 20px; }
+.form-heading-actions { display: flex; align-items: center; gap: 9px; }
+.form-paste-button { display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; color: #bd7137; border: 1px solid #eadac8; border-radius: 9px; background: #fff8f0; font-size: 11px; font-weight: 750; cursor: pointer; transition: background .16s ease, transform .16s ease; }
+.form-paste-button:hover { background: #fff0e4; transform: translateY(-1px); }
 .paste-box { margin: 20px 0 23px; padding: 16px; border: 1px dashed #e9b7a5; border-radius: 11px; background: #fffaf7; }
 .paste-heading { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 11px; }
 .paste-icon { width: 27px; height: 27px; display: grid; place-items: center; flex: 0 0 auto; color: #d66647; border-radius: 8px; background: #ffe9df; }
@@ -336,10 +340,18 @@ form { padding-top: 22px; }
   .topbar-actions .icon-action { display: none; }
   .top-add { padding: 9px 11px; font-size: 10px; }
   .page-wrap { padding: 30px 16px 52px; }
-  .page-heading { display: block; margin-bottom: 22px; }
-  .page-heading h1 { font-size: 30px; }
-  .page-heading p { font-size: 11px; }
+  .page-heading { display: block; margin-bottom: 0; }
+  .page-heading h1 { margin-top: 19px; color: #171816; font-size: 30px; letter-spacing: -.07em; }
+  .page-heading p { max-width: 350px; margin-top: 15px; color: #6f6d67; font-size: 16px; line-height: 1.7; }
+  .page-heading .eyebrow { color: #b69a63; font-size: 12px; letter-spacing: .04em; }
+  .page-heading .eyebrow svg { display: none; }
   .page-heading > .secondary-button, .heading-actions { margin-top: 18px; }
+  .mobile-tabs { display: flex; gap: 0; margin: 31px 0 39px; border-bottom: 1px solid #dbd9d2; }
+  .mobile-tabs button { min-width: 94px; padding: 0 7px 14px; color: #96928a; background: transparent; font-size: 17px; font-weight: 500; cursor: pointer; }
+  .mobile-tabs button:first-child { text-align: left; }
+  .mobile-tabs button:not(:first-child) { text-align: center; }
+  .mobile-tabs .mobile-tab-active { color: #161714; font-weight: 800; border-bottom: 3px solid #bd692e; }
+  .page-heading .heading-actions { display: none; }
   .heading-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .heading-actions button { width: 100%; }
   .heading-filter { width: 100%; margin-top: 18px; }
@@ -363,10 +375,30 @@ form { padding-top: 22px; }
   .panel { padding: 17px; }
   .record-row .tag { display: none; }
   .record-row .score-pill { margin-left: auto; }
-  .record-form-card { padding: 18px 15px; }
-  .form-grid-two, .form-grid-three { grid-template-columns: 1fr; }
-  .metric-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .live-score { grid-column: span 2; }
+  .record-form-card { padding: 25px 20px 27px; border-color: #deddd6; border-radius: 14px; box-shadow: 0 1px 3px rgba(40,40,30,.04); }
+  .form-card-heading { align-items: center; padding-bottom: 18px; border-bottom: 0; }
+  .form-card-heading .eyebrow { display: none; }
+  .form-card-heading h2 { margin: 0; color: #171816; font-size: 18px; }
+  .form-heading-actions { flex: 0 0 auto; }
+  .form-paste-button { padding: 9px 10px; font-size: 9px; white-space: nowrap; }
+  .form-card-heading .text-button { padding: 9px 12px; border: 1px solid #e3d7c8; border-radius: 9px; color: #bd7137; background: #fff8f0; font-size: 12px; }
+  form { padding-top: 0; }
+  .form-section-label { display: none; }
+  .form-grid-two { grid-template-columns: 1fr; }
+  .form-grid-three { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px 14px; }
+  .metric-grid { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 15px 16px; }
+  .live-score { display: none; }
+  .field > span { color: #77756e; font-size: 15px; font-weight: 500; }
+  .field input, .field select, .field textarea { padding: 13px 16px; border-color: #d9d8d2; border-radius: 11px; background: #fdfdfb; color: #2f302c; font-size: 17px; }
+  .field select { min-height: 52px; }
+  .field input { min-height: 52px; }
+  .field textarea { min-height: 106px; line-height: 1.65; }
+  .form-grid-two .field + .field { margin-top: 0; }
+  .field-wide { margin-top: 16px; }
+  .script-textarea { min-height: 136px !important; }
+  .form-submit-row { display: block; margin-top: 22px; padding-top: 0; border-top: 0; }
+  .form-submit-row > span { display: none; }
+  .form-submit-row .primary-button { width: auto; min-width: 129px; padding: 13px 19px; border-radius: 11px; font-size: 15px; }
   .form-submit-row { display: block; }
   .form-submit-row > span { margin-bottom: 13px; }
   .form-submit-row .primary-button { width: 100%; }
