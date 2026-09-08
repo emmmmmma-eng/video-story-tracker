@@ -20,6 +20,7 @@ import {
   Lightbulb,
   Menu,
   MessageCircle,
+  MoreHorizontal,
   Pencil,
   Plus,
   Save,
@@ -254,6 +255,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<View>("records");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [browserClosed, setBrowserClosed] = useState(false);
+  const [browserMenuOpen, setBrowserMenuOpen] = useState(false);
   const [form, setForm] = useState<Entry>(emptyEntry());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -401,6 +404,15 @@ export default function Home() {
     {mobileNavOpen && <button className="sidebar-scrim" onClick={() => setMobileNavOpen(false)} aria-label="關閉側邊欄" />}
 
     <main className="main-content">
+      <div className="mobile-browser-chrome" aria-label="模擬手機瀏覽器標題列">
+        <button className="browser-circle browser-close" onClick={() => { setBrowserClosed(true); setBrowserMenuOpen(false); }} aria-label="關閉瀏覽器視窗"><X size={27} strokeWidth={2.2} /></button>
+        <div className="browser-title">video-story-tracker</div>
+        <div className="browser-more-wrap">
+          <button className="browser-circle browser-more" onClick={() => setBrowserMenuOpen((current) => !current)} aria-label="開啟瀏覽器選單" aria-expanded={browserMenuOpen}><MoreHorizontal size={25} strokeWidth={2.2} /></button>
+          {browserMenuOpen && <div className="browser-menu"><button onClick={() => window.location.reload()}><Sparkles size={14} /> 重新整理頁面</button><button onClick={() => { setBrowserMenuOpen(false); notify("分享功能已準備好"); }}><Share2 size={14} /> 分享這個頁面</button></div>}
+        </div>
+      </div>
+      {browserClosed && <div className="browser-closed-overlay"><div className="browser-closed-card"><div className="browser-closed-icon"><X size={21} /></div><h2>瀏覽器視窗已關閉</h2><p>這是網站內的手機瀏覽器介面模擬。</p><button className="primary-button" onClick={() => setBrowserClosed(false)}>重新開啟</button></div></div>}
       <header className="topbar"><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="開啟選單"><Menu size={20} /></button><div className="topbar-crumb"><span>StoryLab</span><ChevronRight size={14} /><b>{navItems.find((item) => item.key === activeView)?.label}</b></div><div className="topbar-actions"><button className="icon-action" onClick={exportRecords} title="匯出紀錄"><Download size={17} /></button><button className="primary-button top-add" onClick={openNewRecord}><Plus size={17} /> 新增拆解</button></div></header>
 
       {notice && <div className="notice"><Check size={15} />{notice}</div>}
