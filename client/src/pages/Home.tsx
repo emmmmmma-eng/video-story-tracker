@@ -61,7 +61,7 @@ type Ranking = { type: string; avg: number; count: number };
 const HOOK_TYPES = ["身份反差", "結果先丟一半", "懸念提問", "數字/戲劇性開場", "畫面衝擊", "其他"];
 const ENDING_TYPES = ["金句昇華", "遺憾/來不及", "留言引導", "私訊/導流", "開放式留白", "其他"];
 const CONTENT_TYPES = ["故事型", "業配", "教學/知識型", "生活日常", "其他"];
-const STORAGE_KEY = "story-structure-tracker-v1";
+const STORAGE_KEY = "story-structure-tracker-v2";
 
 const FIELD_ALIASES: Record<keyof Pick<Entry, "account" | "title" | "views" | "likes" | "comments" | "saves" | "shares" | "hookType" | "endingType" | "contentType" | "contrastStructure" | "script" | "notes">, string[]> = {
   account: ["帳號"],
@@ -103,62 +103,7 @@ function emptyEntry(): Entry {
   };
 }
 
-const demoEntries: Entry[] = [
-  {
-    ...emptyEntry(),
-    id: "demo_1",
-    account: "free__10.23",
-    title: "我用七年時間送別無數媽媽",
-    views: "172000",
-    likes: "3775",
-    comments: "118",
-    saves: "640",
-    shares: "58",
-    hookType: "身份反差",
-    contrastStructure: "送別別人的媽媽 vs 送不走自己的媽媽",
-    endingType: "遺憾/來不及",
-    contentType: "故事型",
-    script: "我花 7 年的時間，送別很多媽媽。\n我 18 歲進入殯葬業，見過好多家庭最後一面。\n但那天輪到自己的媽媽，我才發現原來最難送走的人，是我最想留住的人。",
-    notes: "前 3 秒用職業身份建立可信度，中段換成自己的故事，情緒落差很強。",
-    createdAt: "2026-09-07T09:30:00.000Z",
-  },
-  {
-    ...emptyEntry(),
-    id: "demo_2",
-    account: "slowdays.tw",
-    title: "你以為我在偷懶，其實我在恢復",
-    views: "86400",
-    likes: "5120",
-    comments: "206",
-    saves: "1880",
-    shares: "344",
-    hookType: "結果先丟一半",
-    contrastStructure: "看起來停滯不前 vs 正在重新蓄力",
-    endingType: "金句昇華",
-    contentType: "生活日常",
-    script: "今天沒有完成任何一件大事。\n但我把窗簾拉開、煮了一頓飯，也終於睡滿八個小時。\n有時候，休息不是偏離軌道，是讓自己回到軌道。",
-    notes: "收藏率很高，適合做成系列；金句要留白 1 秒讓觀眾消化。",
-    createdAt: "2026-09-05T12:20:00.000Z",
-  },
-  {
-    ...emptyEntry(),
-    id: "demo_3",
-    account: "thecoachlab",
-    title: "真正有效的自律，第一步不是早起",
-    views: "42300",
-    likes: "2890",
-    comments: "98",
-    saves: "920",
-    shares: "171",
-    hookType: "懸念提問",
-    contrastStructure: "大家以為的自律 vs 可持續的自律",
-    endingType: "留言引導",
-    contentType: "教學/知識型",
-    script: "你以為自律的第一步是早起嗎？\n其實是先把明天要做的事，縮小到小得不能失敗。\n你今天願意先完成哪一件？留言告訴我。",
-    notes: "提問開頭帶來停留，結尾 CTA 自然；可觀察留言的問題類型。",
-    createdAt: "2026-09-02T16:45:00.000Z",
-  },
-];
+const demoEntries: Entry[] = [];
 
 function toNum(value: string | number) {
   const parsed = Number.parseFloat(String(value).replace(/[^\d.]/g, ""));
