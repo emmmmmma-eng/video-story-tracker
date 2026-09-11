@@ -170,6 +170,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .row-arrow { flex: 0 0 auto; color: #ccc8c0; }
 
 .notice { display: flex; align-items: center; gap: 7px; position: fixed; top: 89px; right: 28px; z-index: 50; padding: 10px 14px; color: #3d6d52; border: 1px solid #cce5d3; border-radius: 9px; background: #f1fbf4; box-shadow: 0 8px 25px rgba(54,112,75,.12); font-size: 11px; font-weight: 700; animation: notice-in .22s cubic-bezier(.23,1,.32,1); }
+.storage-error { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 36px 18px; padding: 13px 15px; border: 1px solid #f0c6b9; border-radius: 11px; color: #994b36; background: #fff3ee; box-shadow: 0 8px 24px rgba(153,75,54,.08); font-size: 12px; }
+.storage-error span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.storage-error b { line-height: 1.5; }
+.storage-error button { flex: 0 0 auto; min-height: 34px; padding: 7px 12px; border-radius: 8px; color: #fff; background: #b85d3e; font-weight: 750; }
 @keyframes notice-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .record-form-card { padding: 25px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: var(--shadow); }
@@ -459,6 +463,8 @@ form { padding-top: 22px; }
   .record-card-main { gap: 8px; padding: 12px; }
   .record-card-icon { width: 31px; height: 31px; }
   .record-card-title { gap: 5px; }
+  .record-title-line { display: block; overflow: visible; white-space: normal; overflow-wrap: anywhere; line-height: 1.45; }
+  .record-title-line b, .record-title-line span { overflow-wrap: anywhere; }
   .record-subline span:not(.tag) { display: none; }
   .record-card-score { gap: 0; }
   .record-detail { padding: 0 14px 15px; }
@@ -475,6 +481,8 @@ form { padding-top: 22px; }
   .performer-rank { width: 20px; font-size: 11px; }
   .performer-row .score-pill-large { font-size: 10px; }
   .notice { top: 73px; right: 16px; left: 16px; justify-content: center; }
+  .storage-error { align-items: stretch; flex-direction: column; margin: 0 16px 16px; font-size: 13px; }
+  .storage-error button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

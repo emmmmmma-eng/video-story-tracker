@@ -62,6 +62,43 @@ const HOOK_TYPES = ["身份反差", "結果先丟一半", "懸念提問", "數�
 const ENDING_TYPES = ["金句昇華", "遺憾/來不及", "留言引導", "私訊/導流", "開放式留白", "其他"];
 const CONTENT_TYPES = ["故事型", "業配", "教學/知識型", "生活日常", "其他"];
 const STORAGE_KEY = "story-structure-tracker-v2";
+type WindowStorageApi = {
+  get: (key: string) => Promise<unknown> | unknown;
+  set: (key: string, value: string) => Promise<unknown> | unknown;
+};
+function getWindowStorage(): WindowStorageApi | undefined {
+  return (window as Window & { storage?: WindowStorageApi }).storage;
+}
+function normalizeAccount(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+function normalizeEntry(entry: Entry): Entry {
+  return { ...entry, account: entry.account.trim(), title: entry.title.trim() };
+}
+function storageText(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "value" in value && typeof (value as { value?: unknown }).value === "string") return (value as { value: string }).value;
+  return null;
+}
+async function readEntries(): Promise<Entry[]> {
+  const windowStorage = getWindowStorage();
+  if (windowStorage) {
+    const raw = storageText(await windowStorage.get(STORAGE_KEY));
+    return raw ? (JSON.parse(raw) as Entry[]).map(normalizeEntry) : [];
+  }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? (JSON.parse(raw) as Entry[]).map(normalizeEntry) : [];
+}
+async function writeEntries(entries: Entry[]) {
+  const serialized = JSON.stringify(entries.map(normalizeEntry));
+  const windowStorage = getWindowStorage();
+  if (windowStorage) {
+    await windowStorage.set(STORAGE_KEY, serialized);
+  } else {
+    localStorage.setItem(STORAGE_KEY, serialized);
+  }
+}
+
 
 const FIELD_ALIASES: Record<keyof Pick<Entry, "account" | "title" | "views" | "likes" | "comments" | "saves" | "shares" | "hookType" | "endingType" | "contentType" | "contrastStructure" | "script" | "notes">, string[]> = {
   account: ["帳號"],
@@ -198,6 +235,7 @@ function RankingBars({ title, ranking, icon: Icon, compact = false }: { title: s
 export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [activeView, setActiveView] = useState<View>("records");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [browserClosed, setBrowserClosed] = useState(false);
@@ -220,28 +258,35 @@ export default function Home() {
   const [selectedEntry, setSelectedEntry] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      setEntries(stored ? JSON.parse(stored) : demoEntries);
-      if (!stored) localStorage.setItem(STORAGE_KEY, JSON.stringify(demoEntries));
-    } catch {
-      setEntries(demoEntries);
-    } finally {
-      setLoading(false);
-    }
+    let cancelled = false;
+    readEntries().then((next) => {
+      if (!cancelled) setEntries(next);
+    }).catch(() => {
+      if (!cancelled) {
+        setEntries([]);
+        setLoadError("讀取紀錄失敗，資料可能暫時無法存取。請按「重新整理」再試一次。");
+      }
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  const accounts = useMemo(() => Array.from(new Set(entries.map((entry) => entry.account).filter(Boolean))).sort(), [entries]);
+  const accounts = useMemo(() => {
+    const byKey = new Map<string, string>();
+    entries.forEach((entry) => { const name = entry.account.trim(); if (name && !byKey.has(normalizeAccount(name))) byKey.set(normalizeAccount(name), name); });
+    return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+  }, [entries]);
   const contentTypes = useMemo(() => Array.from(new Set(entries.map((entry) => entry.contentType).filter(Boolean))).sort(), [entries]);
   const totalViews = useMemo(() => entries.reduce((sum, entry) => sum + toNum(entry.views), 0), [entries]);
   const averageScore = entries.length ? entries.reduce((sum, entry) => sum + engagementScore(entry), 0) / entries.length : 0;
-  const hookRanking = useMemo(() => rankEntries(entries.filter((entry) => patternAccountFilter === "__all__" || entry.account === patternAccountFilter).filter((entry) => patternTypeFilter === "__all__" || entry.contentType === patternTypeFilter), "hookType"), [entries, patternAccountFilter, patternTypeFilter]);
-  const endingRanking = useMemo(() => rankEntries(entries.filter((entry) => patternAccountFilter === "__all__" || entry.account === patternAccountFilter).filter((entry) => patternTypeFilter === "__all__" || entry.contentType === patternTypeFilter), "endingType"), [entries, patternAccountFilter, patternTypeFilter]);
-  const typeRanking = useMemo(() => rankEntries(entries.filter((entry) => patternAccountFilter === "__all__" || entry.account === patternAccountFilter), "contentType"), [entries, patternAccountFilter]);
+  const hookRanking = useMemo(() => rankEntries(entries.filter((entry) => patternAccountFilter === "__all__" || normalizeAccount(entry.account) === normalizeAccount(patternAccountFilter)).filter((entry) => patternTypeFilter === "__all__" || entry.contentType === patternTypeFilter), "hookType"), [entries, patternAccountFilter, patternTypeFilter]);
+  const endingRanking = useMemo(() => rankEntries(entries.filter((entry) => patternAccountFilter === "__all__" || normalizeAccount(entry.account) === normalizeAccount(patternAccountFilter)).filter((entry) => patternTypeFilter === "__all__" || entry.contentType === patternTypeFilter), "endingType"), [entries, patternAccountFilter, patternTypeFilter]);
+  const typeRanking = useMemo(() => rankEntries(entries.filter((entry) => patternAccountFilter === "__all__" || normalizeAccount(entry.account) === normalizeAccount(patternAccountFilter)), "contentType"), [entries, patternAccountFilter]);
   const topEntry = [...entries].sort((a, b) => engagementScore(b) - engagementScore(a))[0];
   const filteredRecords = entries.filter((entry) => {
     const query = recordSearch.toLowerCase();
-    return (recordAccountFilter === "__all__" || entry.account === recordAccountFilter) && (!query || `${entry.account} ${entry.title} ${entry.contentType} ${entry.hookType}`.toLowerCase().includes(query));
+    return (recordAccountFilter === "__all__" || normalizeAccount(entry.account) === normalizeAccount(recordAccountFilter)) && (!query || `${entry.account} ${entry.title} ${entry.contentType} ${entry.hookType}`.toLowerCase().includes(query));
   });
 
   function notify(message: string) {
@@ -273,21 +318,26 @@ export default function Home() {
   }
 
   function persist(next: Entry[]) {
-    setEntries(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* local-only fallback */ }
+    const normalized = next.map(normalizeEntry);
+    setEntries(normalized);
+    void writeEntries(normalized).catch(() => {
+      setLoadError("儲存紀錄失敗，請確認瀏覽器儲存空間後再試一次。");
+      notify("資料儲存失敗");
+    });
   }
 
   function saveRecord(event: React.FormEvent) {
     event.preventDefault();
-    if (!form.account.trim()) {
+    const cleanForm = normalizeEntry(form);
+    if (!cleanForm.account) {
       notify("請至少填寫帳號");
       return;
     }
     if (editingId) {
-      persist(entries.map((entry) => entry.id === editingId ? { ...form, id: editingId } : entry));
+      persist(entries.map((entry) => entry.id === editingId ? { ...cleanForm, id: editingId } : entry));
       notify("紀錄已更新");
     } else {
-      persist([{ ...form, id: makeId(), createdAt: new Date().toISOString() }, ...entries]);
+      persist([{ ...cleanForm, id: makeId(), createdAt: new Date().toISOString() }, ...entries]);
       notify("紀錄已儲存");
     }
     setForm(emptyEntry());
@@ -393,6 +443,7 @@ export default function Home() {
       <header className="topbar"><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="開啟選單"><Menu size={20} /></button><div className="topbar-crumb"><span>StoryLab</span><ChevronRight size={14} /><b>{navItems.find((item) => item.key === activeView)?.label}</b></div><div className="topbar-actions"><button className="icon-action" onClick={exportRecords} title="匯出紀錄"><Download size={17} /></button><button className="primary-button top-add" onClick={openNewRecord}><Plus size={17} /> 新增拆解</button></div></header>
 
       {notice && <div className="notice"><Check size={15} />{notice}</div>}
+      {loadError && <div className="storage-error" role="alert"><span><X size={16} /><b>{loadError}</b></span><button onClick={() => window.location.reload()}>重新整理</button></div>}
 
       {activeView === "overview" && <div className="page-wrap page-enter">
         <div className="page-heading"><div><div className="eyebrow"><Sparkles size={14} /> CONTENT INTELLIGENCE</div><h1>把每一次拆解，變成下一支影片的底氣。</h1><p>從故事結構到互動數據，StoryLab 幫你看見內容真正有效的地方。</p></div><button className="secondary-button" onClick={() => navigate("patterns")}><BarChart3 size={16} /> 查看規律分析</button></div>
@@ -409,7 +460,7 @@ export default function Home() {
       </div>}
 
       {activeView === "remix" && <div className="page-wrap page-enter"><div className="page-heading"><div><div className="eyebrow"><Sparkles size={14} /> REMIX COPY LAB</div><h1>二創文案</h1><p>選一篇你喜歡的文案，保留它的結構節奏，再換成你的主題與語氣。</p></div></div><div className="mobile-tabs">{([['records','影片紀錄'],['accounts','帳號總覽'],['patterns','規律分析'],['remix','二創文案']] as [View,string][]).map(([key,label]) => <button key={key} className={activeView === key ? 'mobile-tab-active' : ''} onClick={() => navigate(key)}>{label}</button>)}</div><section className="remix-lab-card"><div className="remix-lab-intro"><div className="remix-icon"><Sparkles size={19} /></div><div><b>每次生成 4 篇</b><p>四種不同切角，方便你挑選、混搭，再改成自己的版本。</p></div></div><label className="remix-field-label">選擇喜歡的原文案</label><select className="remix-source-select" value={selectedRemixId} onChange={(event) => { setSelectedRemixId(event.target.value); setRemixResults([]); }}><option value="">請選擇一篇影片紀錄</option>{entries.map((entry) => <option key={entry.id} value={entry.id}>{entry.title || "未命名影片"} · {entry.account || "未填帳號"}</option>)}</select>{selectedRemixId && <div className="remix-source-preview"><span>原文案結構</span><b>{entries.find((entry) => entry.id === selectedRemixId)?.hookType} → {entries.find((entry) => entry.id === selectedRemixId)?.endingType}</b></div>}<label className="remix-field-label">你想二創的內容／大概意思</label><textarea className="remix-idea-input" value={remixIdea} onChange={(event) => setRemixIdea(event.target.value)} placeholder="例如：我想寫自己離職後重新找到生活節奏的故事，語氣真誠一點，最後帶一句鼓勵。" /><div className="remix-action-row"><span><FileText size={14} /> 會保留原文案的結構，不直接複製句子</span><button className="primary-button" onClick={createRemix} disabled={isGeneratingRemix}><Sparkles size={16} /> {isGeneratingRemix ? "生成中…" : "生成 4 篇"}</button></div></section>{remixResults.length > 0 && <section className="remix-results"><div className="panel-heading"><div><div className="eyebrow">YOUR REMIXES</div><h2>四篇二創文案</h2></div><span className="muted-caption">可直接複製再修改</span></div><div className="remix-grid">{remixResults.map((result, index) => <article className="remix-result-card" key={result}><div className="remix-result-head"><span>0{index + 1}</span><button className="text-button" onClick={() => { navigator.clipboard?.writeText(result); notify(`第 ${index + 1} 篇已複製`); }}><ClipboardPaste size={14} /> 複製</button></div><p>{result}</p></article>)}</div></section>}{!entries.length && <div className="empty-state large-empty remix-empty"><Sparkles size={34} /><b>先新增一篇影片紀錄</b><p>有了喜歡的原文案之後，就能在這裡開始生成二創版本。</p><button className="primary-button" onClick={openNewRecord}><Plus size={16} /> 新增影片紀錄</button></div>}</div>}
-      {activeView === "accounts" && <div className="page-wrap page-enter"><div className="page-heading"><div><div className="eyebrow"><Users size={14} /> ACCOUNT INTELLIGENCE</div><h1>帳號總覽</h1><p>用每個帳號自己的節奏，看見內容優勢。</p></div></div><div className="mobile-tabs">{([['records','影片紀錄'],['accounts','帳號總覽'],['patterns','規律分析'],['remix','二創文案']] as [View,string][]).map(([key,label]) => <button key={key} className={activeView === key ? 'mobile-tab-active' : ''} onClick={() => navigate(key)}>{label}</button>)}</div>{!accounts.length ? <div className="empty-state large-empty"><Users size={34} /><b>還沒有帳號資料</b><p>先到「影片紀錄」新增第一筆，這裡會自動整理。</p><button className="primary-button" onClick={openNewRecord}><Plus size={16} /> 新增第一筆</button></div> : selectedAccount ? <AccountDetail account={selectedAccount} entries={entries.filter((entry) => entry.account === selectedAccount)} selectedEntry={selectedEntry} setSelectedEntry={setSelectedEntry} onBack={() => { setSelectedAccount(null); setSelectedEntry(null); }} /> : <div className="account-grid">{accounts.map((account) => { const accountEntries = entries.filter((entry) => entry.account === account); const avg = accountEntries.reduce((sum, entry) => sum + engagementScore(entry), 0) / accountEntries.length; const best = [...accountEntries].sort((a, b) => engagementScore(b) - engagementScore(a))[0]; return <button className="account-card" key={account} onClick={() => setSelectedAccount(account)}><div className="account-card-top"><div className="account-avatar">{account.slice(0, 1).toUpperCase()}</div><ChevronRight size={18} className="account-arrow" /></div><h3>{account}</h3><div className="account-card-stats"><span><b>{accountEntries.length}</b> 支影片</span><span><b>{avg.toFixed(1)}</b> 平均分</span></div><div className="account-best"><Star size={13} /> 最佳：{best?.title || "未命名影片"}</div></button>; })}</div>}</div>}
+      {activeView === "accounts" && <div className="page-wrap page-enter"><div className="page-heading"><div><div className="eyebrow"><Users size={14} /> ACCOUNT INTELLIGENCE</div><h1>帳號總覽</h1><p>用每個帳號自己的節奏，看見內容優勢。</p></div></div><div className="mobile-tabs">{([['records','影片紀錄'],['accounts','帳號總覽'],['patterns','規律分析'],['remix','二創文案']] as [View,string][]).map(([key,label]) => <button key={key} className={activeView === key ? 'mobile-tab-active' : ''} onClick={() => navigate(key)}>{label}</button>)}</div>{!accounts.length ? <div className="empty-state large-empty"><Users size={34} /><b>還沒有帳號資料</b><p>先到「影片紀錄」新增第一筆，這裡會自動整理。</p><button className="primary-button" onClick={openNewRecord}><Plus size={16} /> 新增第一筆</button></div> : selectedAccount ? <AccountDetail account={selectedAccount === "__all__" ? "全部帳號" : selectedAccount} entries={selectedAccount === "__all__" ? entries : entries.filter((entry) => normalizeAccount(entry.account) === normalizeAccount(selectedAccount || ""))} selectedEntry={selectedEntry} setSelectedEntry={setSelectedEntry} onBack={() => { setSelectedAccount(null); setSelectedEntry(null); }} /> : <div className="account-grid">{["__all__", ...accounts].map((account) => { const accountEntries = account === "__all__" ? entries : entries.filter((entry) => normalizeAccount(entry.account) === normalizeAccount(account)); const avg = accountEntries.reduce((sum, entry) => sum + engagementScore(entry), 0) / accountEntries.length; const best = [...accountEntries].sort((a, b) => engagementScore(b) - engagementScore(a))[0]; return <button className="account-card" key={account} onClick={() => setSelectedAccount(account)}><div className="account-card-top"><div className="account-avatar">{account === "__all__" ? "∑" : account.slice(0, 1).toUpperCase()}</div><ChevronRight size={18} className="account-arrow" /></div><h3>{account === "__all__" ? "全部帳號" : account}</h3><div className="account-card-stats"><span><b>{accountEntries.length}</b> 支影片</span><span><b>{avg.toFixed(1)}</b> 平均分</span></div><div className="account-best"><Star size={13} /> 最佳：{best?.title || "未命名影片"}</div></button>; })}</div>}</div>}
 
       {activeView === "patterns" && <div className="page-wrap page-enter"><div className="page-heading"><div><div className="eyebrow"><BarChart3 size={14} /> PATTERN ANALYSIS</div><h1>規律分析</h1><p>把直覺變成可重複的內容策略。</p></div><div className="heading-filter"><Filter size={15} /><select value={patternAccountFilter} onChange={(event) => setPatternAccountFilter(event.target.value)}><option value="__all__">所有帳號</option>{accounts.map((account) => <option key={account}>{account}</option>)}</select><select value={patternTypeFilter} onChange={(event) => setPatternTypeFilter(event.target.value)}><option value="__all__">所有內容類型</option>{contentTypes.map((type) => <option key={type}>{type}</option>)}</select></div></div><div className="mobile-tabs">{([['records','影片紀錄'],['accounts','帳號總覽'],['patterns','規律分析'],['remix','二創文案']] as [View,string][]).map(([key,label]) => <button key={key} className={activeView === key ? 'mobile-tab-active' : ''} onClick={() => navigate(key)}>{label}</button>)}</div><div className="analysis-callout"><div className="callout-icon"><Lightbulb size={19} /></div><div><b>{hookRanking[0] ? `「${hookRanking[0].type}」是目前最有感的開場。` : "再多記錄幾支影片，就能看見第一個訊號。"}</b><p>{hookRanking[0] ? `平均互動分數 ${hookRanking[0].avg.toFixed(1)}，來自 ${hookRanking[0].count} 支影片。這是一個值得持續測試的方向。` : "分析會隨著你的紀錄自動更新，不需要另外整理表格。"}</p></div><span className="callout-badge">INSIGHT 01</span></div><div className="analysis-grid"><RankingBars title="開頭鉤子類型 × 平均互動分數" ranking={hookRanking} icon={Hash} /><RankingBars title="結尾手法 × 平均互動分數" ranking={endingRanking} icon={Send} /><RankingBars title="內容類型 × 平均互動分數" ranking={typeRanking} icon={BookOpen} /></div><section className="top-performers"><div className="panel-heading"><div><div className="eyebrow">TOP PERFORMERS</div><h3>高互動影片</h3></div><span className="muted-caption">依互動分數排序</span></div><div className="performer-grid">{[...entries].sort((a, b) => engagementScore(b) - engagementScore(a)).slice(0, 5).map((entry, index) => <div className="performer-row" key={entry.id}><span className="performer-rank">0{index + 1}</span><div className="performer-main"><b>{entry.title || "（未命名影片）"}</b><span>{entry.account} · {entry.hookType} → {entry.endingType}</span></div><ScorePill score={engagementScore(entry)} large /></div>)}</div></section></div>}
     </main>
